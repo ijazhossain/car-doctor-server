@@ -25,11 +25,13 @@ async function run() {
         // Connect the client to the server	(optional starting in v4.7)
         await client.connect();
         const servicesCollection = client.db('servicesDB').collection('services')
+        const bookingsCollection = client.db('servicesDB').collection('bookings')
         app.get('/services', async (req, res) => {
             const cursor = servicesCollection.find()
             const result = await cursor.toArray();
             res.send(result)
         })
+        // Get specific data from db by _id
         app.get('/services/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) }
@@ -38,6 +40,23 @@ async function run() {
             };
             const result = await servicesCollection.findOne(query, options);
             res.send(result);
+        })
+        // Get specific data from DB by query parameter
+        app.get('/bookings', async (req, res) => {
+            console.log(req.query.email)
+            let query = {};
+            if (req.query?.email) {
+                query = { email: req.query.email }
+            }
+            const result = await bookingsCollection.find(query).toArray();
+            res.send(result)
+        })
+        // post book service
+        app.post('/bookings', async (req, res) => {
+            const booking = req.body;
+            console.log(booking);
+            const result = await bookingsCollection.insertOne(booking);
+            res.send(result)
         })
 
         // Send a ping to confirm a successful connection
