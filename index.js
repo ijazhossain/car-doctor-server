@@ -20,6 +20,23 @@ const client = new MongoClient(uri, {
         deprecationErrors: true,
     }
 });
+const verifyJWT = (req, res, next) => {
+    // console.log(req.headers.authorization);
+    const authorization = req.headers.authorization;
+    if (!authorization) {
+        return res.status(401).send({ error: true, message: 'unauthorized access' })
+    }
+    const token = authorization.split(' ')[1];
+    console.log(token);
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, decoded) => {
+        if (error) {
+            return res.status(403).send({ error: true, message: 'unauthorized access' })
+        }
+        req.decoded = decoded;
+        next();
+    });
+
+}
 
 async function run() {
     try {
@@ -27,11 +44,22 @@ async function run() {
         await client.connect();
         const servicesCollection = client.db('servicesDB').collection('services')
         const bookingsCollection = client.db('servicesDB').collection('bookings')
+
+        // getting JWT token
+        app.post('/jwt', (req, res) => {
+            const user = req.body;
+            console.log(user);
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: 5 });
+            res.send({ token })
+        })
+
+        // GET all services data
         app.get('/services', async (req, res) => {
             const cursor = servicesCollection.find()
             const result = await cursor.toArray();
             res.send(result)
         })
+
         // Get specific data from db by _id
         app.get('/services/:id', async (req, res) => {
             const id = req.params.id;
@@ -43,8 +71,15 @@ async function run() {
             res.send(result);
         })
         // Get specific data from DB by query parameter
-        app.get('/bookings', async (req, res) => {
-            console.log(req.query.email)
+        app.get('/bookings', verifyJWT, async (req, res) => {
+            // console.log(req.query.email)
+            // console.log(req.headers);
+            // console.log(req.headers.authorization);
+            const decoded = req.decoded;
+            console.log('Coming back after verify', decoded)
+            if (decoded.email !== req.query.email) {
+                return res.status(403).send({ error: 1, message: 'Foebidden access' })
+            }
             let query = {};
             if (req.query?.email) {
                 query = { email: req.query.email }
